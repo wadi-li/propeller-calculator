@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор воздушного винта — BEM / NACA 4412</title>
+<style>
+:root{
+  --bg:#12151a; --panel:#1a1f27; --panel2:#212832; --line:#2e3846;
+  --tx:#e5eaf0; --tx2:#9aa7b8; --acc:#4da3ff; --ok:#3ecf8e; --warn:#ffb84d; --err:#ff5f56;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",Roboto,Arial,sans-serif}
+header{background:linear-gradient(135deg,#1a2434,#141922);padding:18px 22px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:19px;font-weight:600}
+header p{margin:4px 0 0;color:var(--tx2);font-size:12.5px}
+.wrap{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px;align-items:start}
+@media(max-width:1100px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--acc);font-weight:600}
+.card h3{margin:14px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--tx2)}
+label{display:block;margin-bottom:9px}
+label span{display:block;font-size:11.5px;color:var(--tx2);margin-bottom:3px}
+input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--tx);
+  padding:6px 8px;border-radius:5px;font-size:13px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--acc)}
+button{background:var(--acc);color:#08111c;border:0;padding:9px 14px;border-radius:6px;
+  font-weight:600;cursor:pointer;font-size:13px;width:100%;margin-top:6px}
+button:hover{filter:brightness(1.1)}
+button.sec{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:5px 7px;text-align:right;border-bottom:1px solid var(--line)}
+th{color:var(--tx2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td:first-child,th:first-child{text-align:left}
+.kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)}
+.kv:last-child{border:0}
+.kv b{font-variant-numeric:tabular-nums;font-weight:600}
+.chk{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:5px;
+  background:var(--panel2);margin-bottom:6px;font-size:12.5px}
+.chk .dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+.chk .nm{flex:1}
+.chk .vl{font-variant-numeric:tabular-nums;color:var(--tx2)}
+.ok .dot{background:var(--ok)} .warn .dot{background:var(--warn)} .err .dot{background:var(--err)}
+.ok{border-left:2px solid var(--ok)} .warn{border-left:2px solid var(--warn)} .err{border-left:2px solid var(--err)}
+canvas{width:100%;background:var(--panel2);border-radius:6px;display:block}
+.tabs{display:flex;gap:5px;margin-bottom:11px;flex-wrap:wrap}
+.tab{padding:6px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;
+  cursor:pointer;font-size:12.5px;color:var(--tx2)}
+.tab.on{background:var(--acc);color:#08111c;border-color:var(--acc);font-weight:600}
+.note{font-size:11.5px;color:var(--tx2);margin-top:9px;line-height:1.55}
+.hide{display:none}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.two{grid-template-columns:1fr}}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;
+  background:var(--panel2);color:var(--tx2);margin-left:6px}
+pre{background:var(--panel2);padding:10px;border-radius:5px;overflow:auto;font-size:11px;
+  max-height:230px;color:var(--tx2);margin:0}
+.scroll{max-height:340px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Калькулятор воздушного винта — BEM, профиль NACA 4412</h1>
+  <p>Осевой полёт · теория элемента лопасти с поправкой Прандтля на концевые потери · проверка прочности FDM-печати</p>
+</header>
+
+<div class="wrap">
+<div>
+  <div class="card">
+    <h2>Исходные данные</h2>
+    <div class="grid2">
+      <label><span>Диаметр винта D, мм</span><input id="D" type="number" value="280" step="1"></label>
+      <label><span>Обороты, об/мин</span><input id="rpm" type="number" value="5000" step="50"></label>
+      <label><span>Число лопастей B</span><input id="B" type="number" value="3" min="1" max="8" step="1"></label>
+      <label><span>Скорость потока V₀, м/с</span><input id="V0" type="number" value="12" step="0.5"></label>
+      <label><span>Желаемая тяга, кг</span><input id="Tkg" type="number" value="0.45" step="0.05"></label>
+      <label><span>Диаметр оси, мм</span><input id="Dax" type="number" value="6" step="0.5"></label>
+      <label><span>Диаметр бобышки, мм</span><input id="Dbob" type="number" value="50" step="1"></label>
+      <label><span>Толщина у основания, мм</span><input id="t_root" type="number" value="7" step="0.5"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Параметры расчёта</h2>
+    <label><span>Материал</span>
+      <select id="mat">
+        <option value="petg">PETG</option>
+        <option value="petgcf">PETG-CF (углеволокно)</option>
+        <option value="pacf">PA-CF (нейлон + углеволокно)</option>
+        <option value="asacf">ASA-CF</option>
+      </select>
+    </label>
+    <div class="grid2">
+      <label><span>Проектный угол атаки, °</span><input id="aoa" type="number" value="5" step="0.5"></label>
+      <label><span>Мин. запас прочности</span><input id="nmin" type="number" value="3" step="0.5"></label>
+      <label><span>Хорда на 0.75R, % от R</span><input id="cr" type="number" value="11.5" step="0.5"></label>
+      <label><span>Сужение (taper)</span><input id="tap" type="number" value="0.55" step="0.05"></label>
+      <label><span>Плотность воздуха, кг/м³</span><input id="rho" type="number" value="1.225" step="0.005"></label>
+      <label><span>Скорость звука, м/с</span><input id="snd" type="number" value="343" step="1"></label>
+      <label><span>Толщина на 0.9R, мм</span><input id="t_tip" type="number" value="1.6" step="0.1"></label>
+      <label><span>Ориентация печати</span>
+        <select id="orient"><option value="flat">Плашмя (нагрузка по Z)</option>
+        <option value="edge">На ребро (нагрузка по XY)</option></select></label>
+    </div>
+    <button onclick="run()">Рассчитать</button>
+    <button class="sec" onclick="autoPitch()">Подобрать шаг под тягу</button>
+    <button class="sec" onclick="exportJSON()">Экспорт JSON для STEP</button>
+    <button class="sec" onclick="exportCSV()">Экспорт CSV сечений</button>
+  </div>
+
+  <div class="card">
+    <h2>Результаты</h2>
+    <div id="out"></div>
+  </div>
+</div>
+
+<div>
+  <div class="card">
+    <h2>Проверка граничных условий</h2>
+    <div id="checks"></div>
+    <div class="note" id="matnote"></div>
+  </div>
+
+  <div class="card">
+    <h2>Графики</h2>
+    <div class="tabs">
+      <div class="tab on" onclick="tab(0)">Тяга — обороты</div>
+      <div class="tab" onclick="tab(1)">Тяга — мощность</div>
+      <div class="tab" onclick="tab(2)">Тяга — скорость потока</div>
+      <div class="tab" onclick="tab(3)">Геометрия лопасти</div>
+      <div class="tab" onclick="tab(4)">Профиль / распределения</div>
+    </div>
+    <canvas id="c0" height="330"></canvas>
+    <canvas id="c1" height="330" class="hide"></canvas>
+    <canvas id="c2" height="330" class="hide"></canvas>
+    <canvas id="c3" height="330" class="hide"></canvas>
+    <canvas id="c4" height="330" class="hide"></canvas>
+    <div class="note" id="chartnote"></div>
+  </div>
+
+  <div class="card">
+    <h2>Таблица сечений лопасти</h2>
+    <div class="scroll"><table id="tbl"></table></div>
+    <div class="note">r — радиус сечения; c — хорда; β — угол установки от плоскости вращения;
+      φ — угол притекания; α — угол атаки; H — геометрический шаг 2πr·tanβ; t — толщина.</div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ============ Материалы ============
+   Свойства FDM-печати. XY — вдоль слоёв, Z — межслойная адгезия.
+   Источники: типовые диапазоны производителей нитей + исследования по
+   межслойной прочности; углеволокно повышает модуль, но снижает адгезию слоёв. */
+const MAT = {
+  petg:   {nm:"PETG",    sXY:50, sZ:26, E:2000, rho:1270, note:"Хорошая адгезия слоёв, вязкий, но чувствителен к надрезам."},
+  petgcf: {nm:"PETG-CF", sXY:55, sZ:22, E:5500, rho:1300, note:"Жёстче PETG в ~2.7 раза, но межслойная прочность НИЖЕ: волокно мешает диффузии полимера. Отжиг 120 °C поднимает Z-прочность заметно."},
+  pacf:   {nm:"PA-CF",   sXY:85, sZ:40, E:6500, rho:1180, note:"Лучший вариант для винта: высокая Z-прочность и модуль. Требует сушки и высокой температуры."},
+  asacf:  {nm:"ASA-CF",  sXY:60, sZ:28, E:5000, rho:1150, note:"Стабилен по УФ и температуре, коробится сильнее."}
+};
+
+/* ============ NACA 4412 ============ */
+function naca4412(n){
+  const m=0.04,p=0.4,t=0.12, up=[],lo=[];
+  for(let i=0;i<n;i++){
+    const b=Math.PI*i/(n-1), x=(1-Math.cos(b))/2;
+    const yt=5*t*(0.2969*Math.sqrt(x)-0.1260*x-0.3516*x*x+0.2843*x*x*x-0.1036*x*x*x*x);
+    let yc,dy;
+    if(x<p){ yc=m/(p*p)*(2*p*x-x*x);        dy=2*m/(p*p)*(p-x); }
+    else   { yc=m/((1-p)*(1-p))*((1-2*p)+2*p*x-x*x); dy=2*m/((1-p)*(1-p))*(p-x); }
+    const th=Math.atan(dy);
+    up.push([x-yt*Math.sin(th), yc+yt*Math.cos(th)]);
+    lo.push([x+yt*Math.sin(th), yc-yt*Math.cos(th)]);
+  }
+  return {up,lo};
+}
+// Замкнутый контур: верх от хвоста к носу, затем низ к хвосту
+function foilLoop(n){
+  const f=naca4412(n), P=[];
+  for(let i=f.up.length-1;i>=0;i--) P.push(f.up[i]);
+  for(let i=1;i<f.lo.length;i++)    P.push(f.lo[i]);
+  return P;
+}
+const FOIL = foilLoop(60);
+const A_C2  = 0.08197;    // площадь сечения / c²  (для t/c = 0.12)
+const I_C4  = 1.5493e-4;  // момент инерции / c⁴
+
+/* ============ Полярa NACA 4412 ============
+   Линейный участок CL = 0.4 + 0.11·α[°] (наклон ~2π/рад с поправкой),
+   срыв при |α| > 14°, минимум CD ~0.012 около α = 5°, где CL/CD максимален. */
+function polar(al){
+  let ad = al*180/Math.PI;
+  ad = Math.max(-25,Math.min(25,ad));
+  let cl, cd, st = Math.abs(ad)>14;
+  if(st){
+    cl = Math.sign(ad)*1.5*Math.cos((Math.abs(ad)-14)*0.06);
+    cd = 0.012 + 0.00055*Math.pow(ad-5,2) + 0.08;
+  }else{
+    cl = 0.4 + 0.11*ad;
+    cd = 0.012 + 0.00055*Math.pow(ad-5,2);
+  }
+  return [cl, Math.max(cd,0.010), st];
+}
+
+/* ============ Геометрия лопасти ============ */
+function geom(P, nseg){
+  const R=P.D/2000, rh=P.Dbob/2000;
+  const cRef = P.cr/100*R, dr=(R-rh)/nseg, om=P.rpm*Math.PI/30;
+  const S=[];
+  for(let i=0;i<nseg;i++){
+    const r  = rh + dr*(i+0.5);
+    const xi = (r-rh)/(R-rh);
+    // Хорда: сужение к концу + скругление у самого конца (снижает концевой вихрь)
+    const c  = cRef*(1 - P.tap*xi*xi)*Math.sqrt(Math.max(0.25,1-Math.pow(xi,8)*0.75));
+    // Угол установки: закрутка под постоянный угол атаки при расчётном режиме
+    const phiD = Math.atan2(P.V0*1.15, om*r);
+    const beta = phiD + P.aoa*Math.PI/180;
+    // Толщина: от корневой до концевой по нелинейному закону
+    const th = P.t_root/1000 + (P.t_tip/1000 - P.t_root/1000)*Math.pow(xi,0.75);
+    S.push({r,c,beta,th,dr,xi});
+  }
+  return {S,R,rh,dr,om};
+}
+
+/* ============ BEM решатель ============ */
+function bem(P, G){
+  const {S,R,om}=G, rho=P.rho, B=P.B;
+  let T=0,Q=0, conv=true, stall=0;
+  for(const s of S){
+    let a=0.05, b=0.0, phi=0, W=0, al=0, cl=0, cd=0, st=false, k;
+    for(k=0;k<400;k++){
+      const Va=P.V0*(1+a), Vt=om*s.r*(1-b);
+      phi=Math.atan2(Va,Vt); W=Math.hypot(Va,Vt);
+      al=s.beta-phi;
+      [cl,cd,st]=polar(al);
+      const Cn=cl*Math.cos(phi)-cd*Math.sin(phi);
+      const Ct=cl*Math.sin(phi)+cd*Math.cos(phi);
+      const sig=B*s.c/(2*Math.PI*s.r);
+      // Концевые потери Прандтля
+      const f=B/2*(R-s.r)/(s.r*Math.abs(Math.sin(phi))+1e-9);
+      const F=Math.max(0.15,Math.min(1,2/Math.PI*Math.acos(Math.exp(-Math.min(20,Math.max(0,f))))));
+      const sp=Math.sin(phi), cp=Math.cos(phi);
+      const an=sig*Cn/(4*F*sp*sp+1e-9);
+      const bn=sig*Ct/(4*F*sp*cp+1e-9);
+      let a2=Math.max(-0.4,Math.min(1.5,an/(1+an)));
+      let b2=Math.max(-0.4,Math.min(0.7,bn/(1+bn)));
+      if(Math.abs(a2-a)<1e-8 && Math.abs(b2-b)<1e-8){a=a2;b=b2;break;}
+      a=0.3*a2+0.7*a; b=0.3*b2+0.7*b;
+    }
+    if(k>=399) conv=false;
+    if(st) stall++;
+    const Cn=cl*Math.cos(phi)-cd*Math.sin(phi);
+    const Ct=cl*Math.sin(phi)+cd*Math.cos(phi);
+    const q=0.5*rho*W*W*B*s.c*s.dr;
+    s.dT=q*Cn; s.dQ=q*Ct*s.r;
+    s.phi=phi; s.al=al; s.cl=cl; s.cd=cd; s.W=W; s.a=a; s.b=b; s.stall=st;
+    T+=s.dT; Q+=s.dQ;
+  }
+  const Pw=Q*om, Vtip=om*R;
+  return {T, kg:T/9.80665, Q, Pw, Vtip,
+    Vres:Math.hypot(Vtip,P.V0), M:Math.hypot(Vtip,P.V0)/P.snd,
+    eta: Pw>1e-6 ? T*P.V0/Pw : 0,
+    J: P.V0/((P.rpm/60)*(P.D/1000)),
+    CT: T/(P.rho*Math.pow(P.rpm/60,2)*Math.pow(P.D/1000,4)),
+    conv, stall};
+}
+
+/* ============ Прочность ============ */
+function strength(P,G,R_){
+  const M=MAT[P.mat], {S,om}=G;
+  const sAllow = (P.orient==="flat" ? M.sZ : M.sXY)*1e6;
+  // Центробежная сила у корня: интеграл ρ·A(r)·ω²·r·dr
+  let Fc=0, mass=0;
+  for(const s of S){
+    const A=A_C2*s.c*s.c*(s.th/(0.12*s.c));  // масштаб под фактическую толщину
+    const dm=M.rho*A*s.dr;
+    Fc += dm*om*om*s.r; mass += dm;
+  }
+  const s0=S[0], A0=A_C2*s0.c*s0.c*(s0.th/(0.12*s0.c));
+  const sig_c = Fc/A0;
+  // Изгиб от тяги: момент относительно корня
+  let Mb=0;
+  for(const s of S) Mb += s.dT/P.B*(s.r-G.rh);
+  const I = I_C4*Math.pow(s0.c,4)*Math.pow(s0.th/(0.12*s0.c),3);
+  const sig_b = Mb*(s0.th/2)/I;
+  const sig = sig_c+sig_b;
+  // Прогиб конца: консоль переменного сечения, численно
+  let defl=0, slope=0;
+  for(let i=S.length-1;i>=0;i--){
+    let m=0;
+    for(let j=i;j<S.length;j++) m += S[j].dT/P.B*(S[j].r-S[i].r);
+    const Ii=I_C4*Math.pow(S[i].c,4)*Math.pow(S[i].th/(0.12*S[i].c),3);
+    slope += m/(M.E*1e6*Ii)*S[i].dr;
+    defl  += slope*S[i].dr;
+  }
+  return {sig_c:sig_c/1e6, sig_b:sig_b/1e6, sig:sig/1e6, sAllow:sAllow/1e6,
+    n: sAllow/sig, mass:mass*P.B*1000, defl:defl*1000,
+    deflPct: defl/G.R*100, Fc, M};
+}
+
+/* ============ Импульсная сверка ============ */
+function momentum(P,res){
+  const R=P.D/2000, rh=P.Dbob/2000;
+  const A=Math.PI*(R*R-rh*rh);
+  // T = 2ρA(V0+vi)vi  →  решаем квадратное относительно vi
+  const vi = (-P.V0 + Math.sqrt(P.V0*P.V0 + 2*res.T/(P.rho*A)))/2;
+  return {A, vi, Vwake:P.V0+2*vi,
+    viReq: (-P.V0+Math.sqrt(P.V0*P.V0+2*(P.Tkg*9.80665)/(P.rho*A)))/2,
+    Pideal: res.T*(P.V0+vi), FM: res.Pw>0 ? res.T*(P.V0+vi)/res.Pw : 0};
+}
+
+/* ============ Ввод ============ */
+const g=id=>parseFloat(document.getElementById(id).value);
+function readP(){
+  return {D:g("D"),rpm:g("rpm"),B:Math.round(g("B")),V0:g("V0"),Tkg:g("Tkg"),
+    Dax:g("Dax"),Dbob:g("Dbob"),t_root:g("t_root"),t_tip:g("t_tip"),
+    aoa:g("aoa"),nmin:g("nmin"),cr:g("cr"),tap:g("tap"),rho:g("rho"),snd:g("snd"),
+    mat:document.getElementById("mat").value,
+    orient:document.getElementById("orient").value};
+}
+
+let ST={};
+
+function run(){
+  const P=readP();
+  if(P.Dbob<=P.Dax){alert("Диаметр бобышки должен быть больше диаметра оси.");return;}
+  if(P.Dbob>=P.D){alert("Диаметр бобышки должен быть меньше диаметра винта.");return;}
+  const G=geom(P,24), res=bem(P,G), str=strength(P,G), mom=momentum(P,res);
+  ST={P,G,res,str,mom};
+  showOut(P,res,str,mom); showChecks(P,res,str,mom); showTable(P,G); drawAll();
+}
+
+function showOut(P,res,str,mom){
+  const H75 = (()=>{const s=ST.G.S.reduce((b,x)=>Math.abs(x.xi-0.75)<Math.abs(b.xi-0.75)?x:b);
+    return 2*Math.PI*s.r*Math.tan(s.beta)*1000;})();
+  const rows=[
+    ["Тяга", res.kg.toFixed(3)+" кг"],
+    ["Тяга", res.T.toFixed(2)+" Н"],
+    ["Требуемая тяга", P.Tkg.toFixed(3)+" кг"],
+    ["Невязка по тяге", ((res.kg-P.Tkg)/P.Tkg*100).toFixed(1)+" %"],
+    ["Момент на валу", res.Q.toFixed(4)+" Н·м"],
+    ["Мощность на валу", res.Pw.toFixed(1)+" Вт"],
+    ["КПД винта η", (res.eta*100).toFixed(1)+" %"],
+    ["Figure of merit", mom.FM.toFixed(3)],
+    ["Скорость конца лопасти", res.Vtip.toFixed(1)+" м/с"],
+    ["Число Маха (результ.)", res.M.toFixed(3)],
+    ["Относит. шаг J", res.J.toFixed(3)],
+    ["Шаг на 0.75R", H75.toFixed(1)+" мм"],
+    ["Индуц. скорость vi", mom.vi.toFixed(2)+" м/с"],
+    ["Скорость за винтом", mom.Vwake.toFixed(2)+" м/с"],
+    ["Масса лопастей", str.mass.toFixed(1)+" г"],
+    ["Прогиб конца", str.defl.toFixed(2)+" мм"]
+  ];
+  document.getElementById("out").innerHTML =
+    rows.map(r=>`<div class="kv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+}
+
+function showChecks(P,res,str,mom){
+  const c=[];
+  const add=(nm,vl,st,cm)=>c.push({nm,vl,st,cm});
+
+  // Маха
+  add("Число Маха на конце", res.M.toFixed(3),
+    res.M<0.6?"ok":res.M<0.75?"warn":"err",
+    res.M<0.6?"безопасно":res.M<0.75?"рост шума":"волновой кризис");
+  // Скорость конца
+  add("Скорость конца лопасти", res.Vtip.toFixed(0)+" м/с",
+    res.Vtip<180?"ok":res.Vtip<230?"warn":"err","предел FDM ~200-230 м/с");
+  // Запас прочности
+  add("Запас прочности", str.n.toFixed(2),
+    str.n>=P.nmin?"ok":str.n>=1.5?"warn":"err",
+    `σ=${str.sig.toFixed(1)} / [${str.sAllow.toFixed(0)}] МПа`);
+  // Растяжение
+  add("Растяжение у корня", str.sig_c.toFixed(1)+" МПа",
+    str.sig_c<str.sAllow/P.nmin?"ok":"err","центробежная сила");
+  // Изгиб
+  add("Изгиб у корня", str.sig_b.toFixed(1)+" МПа",
+    str.sig_b<str.sAllow/P.nmin?"ok":"err","от аэродинамической тяги");
+  // Жёсткость
+  add("Прогиб конца / R", str.deflPct.toFixed(2)+" %",
+    str.deflPct<1?"ok":str.deflPct<2.5?"warn":"err","свыше 2.5% меняет шаг");
+  // Тяга
+  const dT=(res.kg-P.Tkg)/P.Tkg*100;
+  add("Достижение целевой тяги", (dT>=0?"+":"")+dT.toFixed(1)+" %",
+    Math.abs(dT)<5?"ok":Math.abs(dT)<20?"warn":"err",
+    `${res.kg.toFixed(3)} против ${P.Tkg.toFixed(3)} кг`);
+  // Скорость за винтом
+  add("Скорость потока за винтом", mom.Vwake.toFixed(1)+" м/с",
+    "ok", `при V₀ = ${P.V0} м/с`);
+  // Срыв
+  add("Сечения в срыве", ST.res.stall+" из 24",
+    res.stall===0?"ok":res.stall<4?"warn":"err","α > 14°");
+  // Толщина по 10/90%
+  const s10=ST.G.S.reduce((b,x)=>Math.abs(x.xi-0.10)<Math.abs(b.xi-0.10)?x:b);
+  const s90=ST.G.S.reduce((b,x)=>Math.abs(x.xi-0.90)<Math.abs(b.xi-0.90)?x:b);
+  add("Толщина на 0.10L", (s10.th*1000).toFixed(2)+" мм",
+    s10.th*1000>=2?"ok":"warn","минимум ~2 мм для печати");
+  add("Толщина на 0.90L", (s90.th*1000).toFixed(2)+" мм",
+    s90.th*1000>=1.2?"ok":"err","минимум ~1.2 мм (3 линии сопла 0.4)");
+  // Ширина лопасти
+  const cmax=Math.max(...ST.G.S.map(s=>s.c))*1000;
+  const sol=ST.G.S.reduce((a,s)=>a+s.c*s.dr,0)*P.B/(Math.PI*Math.pow(ST.G.R,2)-Math.PI*Math.pow(ST.G.rh,2));
+  add("Заполнение диска σ", sol.toFixed(3),
+    sol<0.25?"ok":sol<0.4?"warn":"err",`макс. хорда ${cmax.toFixed(1)} мм`);
+  // Сходимость
+  add("Сходимость BEM", res.conv?"да":"нет", res.conv?"ok":"err",
+    res.conv?"решение устойчиво":"уменьшите хорду или обороты");
+
+  document.getElementById("checks").innerHTML = c.map(x=>
+    `<div class="chk ${x.st}"><div class="dot"></div><div class="nm">${x.nm}</div>
+     <div class="vl">${x.vl} · ${x.cm}</div></div>`).join("");
+
+  const M=MAT[P.mat];
+  document.getElementById("matnote").innerHTML =
+    `<b>${M.nm}</b>: σ<sub>XY</sub> = ${M.sXY} МПа, σ<sub>Z</sub> = ${M.sZ} МПа, E = ${M.E} МПа, ρ = ${M.rho} кг/м³. ${M.note}
+     <br>Расчёт ведётся по <b>${P.orient==="flat"?"Z":"XY"}</b>-прочности (${P.orient==="flat"?
+     "печать плашмя — центробежная нагрузка идёт поперёк слоёв, это самый опасный случай":
+     "печать на ребро — нагрузка вдоль слоёв, прочность выше, но нужны поддержки"}).`;
+}
+
+function showTable(P,G){
+  let h=`<tr><th>r, мм</th><th>r/R</th><th>c, мм</th><th>β, °</th><th>φ, °</th>
+    <th>α, °</th><th>H, мм</th><th>t, мм</th><th>dT, Н</th></tr>`;
+  for(const s of G.S){
+    h+=`<tr><td>${(s.r*1000).toFixed(1)}</td><td>${(s.r/G.R).toFixed(3)}</td>
+      <td>${(s.c*1000).toFixed(2)}</td><td>${(s.beta*180/Math.PI).toFixed(2)}</td>
+      <td>${(s.phi*180/Math.PI).toFixed(2)}</td>
+      <td style="color:${Math.abs(s.al*180/Math.PI)>14?'var(--err)':'inherit'}">${(s.al*180/Math.PI).toFixed(2)}</td>
+      <td>${(2*Math.PI*s.r*Math.tan(s.beta)*1000).toFixed(1)}</td>
+      <td>${(s.th*1000).toFixed(2)}</td><td>${s.dT.toFixed(3)}</td></tr>`;
+  }
+  document.getElementById("tbl").innerHTML=h;
+}
+
+/* ============ Подбор шага под целевую тягу ============ */
+function autoPitch(){
+  const P=readP();
+  let lo=-6, hi=18, best=P.aoa;
+  for(let i=0;i<40;i++){
+    const mid=(lo+hi)/2;
+    const Pm={...P,aoa:mid};
+    const r=bem(Pm,geom(Pm,20));
+    if(r.kg<P.Tkg) lo=mid; else hi=mid;
+    best=mid;
+  }
+  document.getElementById("aoa").value=best.toFixed(2);
+  run();
+  const d=(ST.res.kg-P.Tkg)/P.Tkg*100;
+  document.getElementById("chartnote").textContent =
+    `Подобран угол атаки ${best.toFixed(2)}° — тяга ${ST.res.kg.toFixed(3)} кг (невязка ${d.toFixed(1)}%). `+
+    (Math.abs(d)>10?"Целевая тяга недостижима на этих оборотах/диаметре — измените D или RPM.":"");
+}
+
+/* ============ Графики ============ */
+function plot(cv, series, xl, yl, ttl, y2){
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=330;
+  cv.width=W*dpr; cv.height=H*dpr;
+  const x=cv.getContext("2d"); x.scale(dpr,dpr);
+  x.fillStyle="#212832"; x.fillRect(0,0,W,H);
+  const L=62,R=y2?62:18,T=34,Bo=44, pw=W-L-R, ph=H-T-Bo;
+  const all=series.flatMap(s=>s.d);
+  const xs=all.map(p=>p[0]), ys=series.filter(s=>!s.ax2).flatMap(s=>s.d).map(p=>p[1]);
+  let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(0,...ys),y1=Math.max(...ys);
+  const yp=(y1-y0)*0.08||1; y1+=yp;
+  const s2=series.filter(s=>s.ax2).flatMap(s=>s.d).map(p=>p[1]);
+  let z0=0,z1=1;
+  if(s2.length){z0=Math.min(0,...s2);z1=Math.max(...s2)*1.08;}
+  const X=v=>L+(v-x0)/((x1-x0)||1)*pw, Y=v=>T+ph-(v-y0)/((y1-y0)||1)*ph;
+  const Y2=v=>T+ph-(v-z0)/((z1-z0)||1)*ph;
+
+  x.font="600 13px Segoe UI"; x.fillStyle="#e5eaf0"; x.textAlign="left";
+  x.fillText(ttl,L,20);
+  x.strokeStyle="#2e3846"; x.lineWidth=1; x.font="11px Segoe UI";
+  for(let i=0;i<=5;i++){
+    const yy=T+ph*i/5, vv=y1-(y1-y0)*i/5;
+    x.beginPath();x.moveTo(L,yy);x.lineTo(L+pw,yy);x.stroke();
+    x.fillStyle="#9aa7b8";x.textAlign="right";
+    x.fillText(Math.abs(vv)>=100?vv.toFixed(0):vv.toFixed(2),L-7,yy+3.5);
+    if(y2){x.textAlign="left";x.fillStyle="#ffb84d";
+      x.fillText((z1-(z1-z0)*i/5).toFixed(2),L+pw+7,yy+3.5);}
+  }
+  for(let i=0;i<=6;i++){
+    const xx=L+pw*i/6, vv=x0+(x1-x0)*i/6;
+    x.strokeStyle="#2e3846";x.beginPath();x.moveTo(xx,T);x.lineTo(xx,T+ph);x.stroke();
+    x.fillStyle="#9aa7b8";x.textAlign="center";
+    x.fillText(Math.abs(vv)>=100?vv.toFixed(0):vv.toFixed(1),xx,T+ph+16);
+  }
+  x.strokeStyle="#4a5566";x.beginPath();x.moveTo(L,T);x.lineTo(L,T+ph);x.lineTo(L+pw,T+ph);x.stroke();
+  x.fillStyle="#9aa7b8";x.textAlign="center";x.fillText(xl,L+pw/2,H-9);
+  x.save();x.translate(15,T+ph/2);x.rotate(-Math.PI/2);x.fillText(yl,0,0);x.restore();
+  if(y2){x.save();x.translate(W-13,T+ph/2);x.rotate(-Math.PI/2);
+    x.fillStyle="#ffb84d";x.fillText(y2,0,0);x.restore();}
+
+  series.forEach(s=>{
+    x.strokeStyle=s.c; x.lineWidth=s.w||2; x.setLineDash(s.dash||[]);
+    x.beginPath();
+    s.d.forEach((p,i)=>{const px=X(p[0]),py=(s.ax2?Y2:Y)(p[1]);
+      i?x.lineTo(px,py):x.moveTo(px,py);});
+    x.stroke(); x.setLineDash([]);
+    if(s.pt) s.d.forEach(p=>{x.fillStyle=s.c;x.beginPath();
+      x.arc(X(p[0]),(s.ax2?Y2:Y)(p[1]),3,0,7);x.fill();});
+  });
+  if(series.some(s=>s.nm)){
+    let ly=T+8;
+    series.filter(s=>s.nm).forEach(s=>{
+      x.strokeStyle=s.c;x.lineWidth=2.5;x.setLineDash(s.dash||[]);
+      x.beginPath();x.moveTo(L+pw-118,ly);x.lineTo(L+pw-96,ly);x.stroke();x.setLineDash([]);
+      x.fillStyle="#e5eaf0";x.textAlign="left";x.font="11px Segoe UI";
+      x.fillText(s.nm,L+pw-90,ly+3.5); ly+=16;});
+  }
+  return {X,Y,L,T,pw,ph};
+}
+
+function drawAll(){
+  const {P}=ST;
+  // 1) тяга-обороты
+  const d1=[],d1p=[],d1m=[];
+  for(let n=Math.max(200,P.rpm*0.2); n<=P.rpm*1.6; n+=P.rpm*0.05){
+    const Pn={...P,rpm:n}, Gn=geom(Pn,20), r=bem(Pn,Gn);
+    d1.push([n,r.kg]); d1p.push([n,r.Pw]); d1m.push([n,r.M]);
+  }
+  plot(document.getElementById("c0"),
+    [{d:d1,c:"#4da3ff",nm:"тяга, кг"},
+     {d:d1m,c:"#ffb84d",nm:"число Маха",ax2:1,dash:[5,3]},
+     {d:[[P.rpm,0],[P.rpm,Math.max(...d1.map(p=>p[1]))]],c:"#3ecf8e",nm:"рабочая точка",w:1.5,dash:[3,3]}],
+    "Обороты, об/мин","Тяга, кг","Тяга и число Маха от оборотов","M");
+
+  // 2) тяга-мощность
+  plot(document.getElementById("c1"),
+    [{d:d1p.map((p,i)=>[p[1],d1[i][1]]).filter(p=>p[0]>0),c:"#4da3ff",nm:"тяга, кг",pt:1},
+     {d:d1p.map((p,i)=>{const Pn={...P,rpm:d1[i][0]};const r=bem(Pn,geom(Pn,20));
+       return [p[1],r.eta];}).filter(p=>p[0]>0&&p[1]>0),c:"#ffb84d",nm:"КПД η",ax2:1,dash:[5,3]}],
+    "Мощность на валу, Вт","Тяга, кг","Тяга и КПД от мощности (нагрузки на оси)","η");
+
+  // 3) тяга-скорость потока
+  const d3=[],d3e=[];
+  for(let v=0; v<=Math.max(30,P.V0*3); v+=Math.max(30,P.V0*3)/28){
+    const Pv={...P,V0:v}, r=bem(Pv,geom(Pv,20));
+    d3.push([v,r.kg]); d3e.push([v,Math.max(0,r.eta)]);
+  }
+  plot(document.getElementById("c2"),
+    [{d:d3,c:"#4da3ff",nm:"тяга, кг"},
+     {d:d3e,c:"#ffb84d",nm:"КПД η",ax2:1,dash:[5,3]},
+     {d:[[P.V0,Math.min(...d3.map(p=>p[1]))],[P.V0,Math.max(...d3.map(p=>p[1]))]],
+      c:"#3ecf8e",nm:"рабочая V₀",w:1.5,dash:[3,3]}],
+    "Скорость набегающего потока V₀, м/с","Тяга, кг",
+    "Тяга и КПД от скорости полёта при "+P.rpm+" об/мин","η");
+
+  // 4) геометрия
+  const S=ST.G.S;
+  plot(document.getElementById("c3"),
+    [{d:S.map(s=>[s.r*1000,s.c*1000]),c:"#4da3ff",nm:"хорда c, мм",pt:1},
+     {d:S.map(s=>[s.r*1000,s.th*1000]),c:"#3ecf8e",nm:"толщина t, мм",pt:1},
+     {d:S.map(s=>[s.r*1000,s.beta*180/Math.PI]),c:"#ffb84d",nm:"угол β, °",ax2:1},
+     {d:S.map(s=>[s.r*1000,s.al*180/Math.PI]),c:"#ff5f56",nm:"α, °",ax2:1,dash:[4,3]}],
+    "Радиус r, мм","Размер, мм","Распределение геометрии по радиусу","Угол, °");
+
+  // 5) профиль + нагрузка
+  const cv=document.getElementById("c4"), dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth,H=330; cv.width=W*dpr;cv.height=H*dpr;
+  const x=cv.getContext("2d");x.scale(dpr,dpr);
+  x.fillStyle="#212832";x.fillRect(0,0,W,H);
+  x.font="600 13px Segoe UI";x.fillStyle="#e5eaf0";
+  x.fillText("NACA 4412 в сечениях 0.1R / 0.5R / 0.9R и распределение тяги",14,20);
+  // профили
+  const cols=["#4da3ff","#3ecf8e","#ffb84d"], targ=[0.1,0.5,0.9];
+  const pw=W*0.5, ph=H-70;
+  targ.forEach((tg,k)=>{
+    const s=S.reduce((b,q)=>Math.abs(q.xi-tg)<Math.abs(b.xi-tg)?q:b);
+    const cc=s.c, sc=pw*0.78/ (Math.max(...S.map(q=>q.c)));
+    const ox=40, oy=60+ph/3*k+ph/9;
+    x.strokeStyle=cols[k];x.lineWidth=1.8;x.beginPath();
+    FOIL.forEach((p,i)=>{
+      // поворот на угол установки
+      const xx=(p[0]-0.5)*cc, yy=p[1]*cc, ca=Math.cos(-s.beta), sa=Math.sin(-s.beta);
+      const px=ox+(xx*ca-yy*sa)*sc+pw*0.35, py=oy-(xx*sa+yy*ca)*sc;
+      i?x.lineTo(px,py):x.moveTo(px,py);});
+    x.closePath();x.stroke();
+    x.fillStyle=cols[k];x.font="11px Segoe UI";x.textAlign="left";
+    x.fillText(`r/R=${(s.r/ST.G.R).toFixed(2)}  c=${(cc*1000).toFixed(1)}мм  β=${(s.beta*180/Math.PI).toFixed(1)}°`,ox,oy-ph/9+16);
+  });
+  // распределение тяги
+  const L2=W*0.58, pw2=W-L2-26, T2=48, ph2=H-T2-42;
+  const mx=Math.max(...S.map(s=>s.dT));
+  x.strokeStyle="#2e3846";
+  for(let i=0;i<=4;i++){const yy=T2+ph2*i/4;x.beginPath();x.moveTo(L2,yy);x.lineTo(L2+pw2,yy);x.stroke();
+    x.fillStyle="#9aa7b8";x.textAlign="right";x.font="10px Segoe UI";
+    x.fillText((mx*(1-i/4)).toFixed(2),L2-5,yy+3);}
+  const bw=pw2/S.length*0.8;
+  S.forEach((s,i)=>{
+    const hh=s.dT/mx*ph2, xx=L2+pw2*i/S.length;
+    x.fillStyle=s.stall?"#ff5f56":"#4da3ff";
+    x.fillRect(xx,T2+ph2-hh,bw,hh);});
+  x.strokeStyle="#4a5566";x.beginPath();x.moveTo(L2,T2);x.lineTo(L2,T2+ph2);
+  x.lineTo(L2+pw2,T2+ph2);x.stroke();
+  x.fillStyle="#9aa7b8";x.textAlign="center";x.font="11px Segoe UI";
+  x.fillText("r → R",L2+pw2/2,H-14);
+  x.fillText("dT по сечениям, Н",L2+pw2/2,T2-8);
+
+  document.getElementById("chartnote").innerHTML =
+    `Все кривые пересчитываются полным BEM-решателем в каждой точке (не аппроксимация). `+
+    `Тяга растёт примерно как n², отклонение вверху — рост индуктивных потерь и подход к срыву. `+
+    `Нулевая тяга по графику 3 наступает при J ≈ шаг/диаметр — это режим осевой авторотации.`;
+}
+
+function tab(i){
+  document.querySelectorAll(".tabs .tab").forEach((t,k)=>t.classList.toggle("on",k===i));
+  for(let k=0;k<5;k++) document.getElementById("c"+k).classList.toggle("hide",k!==i);
+}
+
+/* ============ Экспорт ============ */
+function dl(nm,txt,mime){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([txt],{type:mime||"text/plain"}));
+  a.download=nm; a.click();
+}
+function exportJSON(){
+  if(!ST.P){run();}
+  const {P,G,res,str}=ST;
+  const o={
+    meta:{generated:new Date().toISOString(), airfoil:"NACA 4412",
+      mode:"axial flight", solver:"BEM + Prandtl tip loss"},
+    input:{D_mm:P.D, rpm:P.rpm, blades:P.B, V0_ms:P.V0, thrust_target_kg:P.Tkg,
+      axis_dia_mm:P.Dax, hub_dia_mm:P.Dbob, root_thick_mm:P.t_root,
+      tip_thick_mm:P.t_tip, aoa_deg:P.aoa, material:P.mat},
+    results:{thrust_kg:+res.kg.toFixed(4), thrust_N:+res.T.toFixed(3),
+      torque_Nm:+res.Q.toFixed(5), power_W:+res.Pw.toFixed(2),
+      efficiency:+res.eta.toFixed(4), Vtip_ms:+res.Vtip.toFixed(2),
+      mach:+res.M.toFixed(4), J:+res.J.toFixed(4),
+      safety_factor:+str.n.toFixed(3), mass_g:+str.mass.toFixed(2),
+      tip_deflection_mm:+str.defl.toFixed(3)},
+    sections:G.S.map(s=>({r_mm:+(s.r*1000).toFixed(3), chord_mm:+(s.c*1000).toFixed(3),
+      beta_deg:+(s.beta*180/Math.PI).toFixed(3), thick_mm:+(s.th*1000).toFixed(3),
+      pitch_mm:+(2*Math.PI*s.r*Math.tan(s.beta)*1000).toFixed(2),
+      alpha_deg:+(s.al*180/Math.PI).toFixed(3), dT_N:+s.dT.toFixed(4)})),
+    airfoil_unit:FOIL.map(p=>[+p[0].toFixed(6),+p[1].toFixed(6)])
+  };
+  dl("propeller_params.json",JSON.stringify(o,null,2),"application/json");
+}
+function exportCSV(){
+  if(!ST.P){run();}
+  let s="r_mm,r_R,chord_mm,beta_deg,phi_deg,alpha_deg,pitch_mm,thick_mm,dT_N,cl,cd\n";
+  ST.G.S.forEach(q=>{s+=[(q.r*1000).toFixed(3),(q.r/ST.G.R).toFixed(4),
+    (q.c*1000).toFixed(3),(q.beta*180/Math.PI).toFixed(3),(q.phi*180/Math.PI).toFixed(3),
+    (q.al*180/Math.PI).toFixed(3),(2*Math.PI*q.r*Math.tan(q.beta)*1000).toFixed(2),
+    (q.th*1000).toFixed(3),q.dT.toFixed(4),q.cl.toFixed(4),q.cd.toFixed(4)].join(",")+"\n";});
+  dl("propeller_sections.csv",s,"text/csv");
+}
+
+window.addEventListener("resize",()=>{if(ST.P)drawAll();});
+run();
+</script>
+</body>
+</html>

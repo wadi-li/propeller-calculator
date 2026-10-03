@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.step
+*.stp
+*.stl
+*.csv
+propeller_params.json
+.venv/
+venv/
+.vscode/
+.idea/
+.DS_Store
